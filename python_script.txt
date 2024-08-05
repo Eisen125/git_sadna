@@ -1,0 +1,84 @@
+import pandas as pd
+import pyodbc
+
+def create_table_from_csv(csv_file_path, server, database, table):
+    # Read CSV file into a pandas DataFrame
+    df = pd.read_csv(csv_file_path)  # Read only the first row to get column data types
+
+    # Connect to Microsoft SQL Server
+    connection_string = f'DRIVER={{SQL Server}};SERVER={server};DATABASE={database}'
+    conn = pyodbc.connect(connection_string)
+
+    # Create a cursor from the connection
+    cursor = conn.cursor()
+
+    # Generate the CREATE TABLE statement dynamically
+    create_table_query = f'CREATE TABLE {table} (\n'
+    for col_name, col_type in zip(df.columns, df.dtypes):
+        if col_type =='int64':
+            sql_type=='INT'
+        elif col_type == 'float64':
+            sql_type =='FLOAT'
+        elif col_type =='object':
+         sql_type = 'VARCHAR(MAX)'  
+        create_table_query += f'[{col_name}] {sql_type},\n'
+    create_table_query = create_table_query.rstrip(',\n') + '\n);'
+
+    # Execute the CREATE TABLE statement
+    cursor.execute(create_table_query)
+
+    # Commit the changes and close the connection
+    conn.commit()
+    conn.close()
+
+def upload_csv_to_mssql(csv_file_path, server, database, table):
+    # Create the table if it doesn't exist
+    create_table_from_csv(csv_file_path, server, database, table)
+
+    # Read CSV file into a pandas DataFrame
+    df = pd.read_csv(csv_file_path)
+
+    
+    # Connect to Microsoft SQL Server
+    connection_string = f'DRIVER={{SQL Server}};SERVER={server};DATABASE={database}'
+    conn = pyodbc.connect(connection_string)
+
+    # Create a cursor from the connection
+    cursor = conn.cursor()
+
+    # Match columns from CSV to SQL Server table
+    df.columns = [col.replace(' ', '_') for col in df.columns]  # Replace spaces with underscores
+    df.columns = [col[:128] for col in df.columns]  # Trim column names to 128 characters (SQL Server limit)
+
+    # Print data types and missing values for debugging
+    print("First few rows of the DataFrame:")
+    print(df.head(1))
+
+    max_rows = 2
+    # Generate the SQL query dynamically using parameterized queries
+    for index, row in df.head(max_rows).iterrows():
+        try:
+            placeholders = ','.join('?' * len(row))
+            columns = ', '.join(f'[{col}]' for col in df.columns)
+            values = ', '.join('?' * len(row))
+            query = f'INSERT INTO {table} ({columns}) VALUES ({values})'
+            print(query, tuple(row))
+            cursor.execute(query, tuple(row))
+        except Exception as e:
+            print(f"Error inserting row {index + 1}: {e}")
+                
+    # Commit the changes
+    conn.commit()
+    conn.close()
+
+if __name__ == "__main__":
+    # Provide your SQL Server credentials and other details
+    server = 'DESKTOP-VTCLCI8\SQLEXPRESS'
+    database = 'jlrcheck'
+    table = 'conn'
+
+    # Specify the path to your CSV file using a raw string (prefix with r)
+    csv_file_path = r'C:\Users\Ido\Desktop\check\log_24_test.csv'
+
+    # Call the function to upload the CSV data to MSSQL
+    upload_csv_to_mssql(csv_file_path, server, database, table)
