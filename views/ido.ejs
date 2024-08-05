@@ -1,0 +1,15 @@
+<!-- views/index.ejs -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>User List</title>
+</head>
+<body>
+  <h1>User List</h1>
+  <ul>
+    <% ido.forEach(user => { %>
+      <li><%= user.name %> - <%= user.age %> years old</li>
+    <% }) %>
+  </ul>
+</body>
+</html>
